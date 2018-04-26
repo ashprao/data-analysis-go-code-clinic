@@ -31,85 +31,98 @@ func check(e error) {
 	}
 }
 
-func getKeysFromValueMap(m map[float64]int) (keys []float64) {
-	// Extract all keys into an array
-	for k, v := range m {
-		for i := 0; i < v; i++ {
+type valueCountMap map[float64]int
+type countValueMap map[int][]float64
+type keyList []interface{}
+
+func (list *keyList) getAverage() (avg float64) {
+	sum := 0.0
+	for _, v := range *list {
+		x := v.(float64)
+		sum += x
+	}
+	return sum / float64(len(*list))
+}
+
+func (list *keyList) getMedian() (median float64) {
+	// Sort the array of keys
+	var sortedKeys []float64
+	for _, v := range *list {
+		sortedKeys = append(sortedKeys, v.(float64))
+	}
+	sort.Float64s(sortedKeys)
+
+	// Check if array contains even set of keys
+	keysLength, mid := len(sortedKeys), len(sortedKeys)/2
+	if keysLength%2 == 0 {
+		// median is the mean of the middle two numbers in array
+		median = (sortedKeys[mid-1] + sortedKeys[mid]) / 2.0
+		return
+	}
+	// Otherwise median is the mid point of the array
+	median = sortedKeys[mid]
+	return
+}
+
+func (m *valueCountMap) getKeys() (keys keyList) {
+	// Extract all keys into an array. The count represents the number of times the
+	// respective keys should be in the list
+	for k, c := range *m {
+		// Add the key for as many times as the count
+		for i := 0; i < c; i++ {
 			keys = append(keys, k)
 		}
 	}
 	return
 }
 
-func getKeysFromCountMap(m map[int][]float64) (keys []int) {
+func (m *countValueMap) getKeys() (keys keyList) {
 	// Extract all keys into an array
-	for k := range m {
+	for k := range *m {
 		keys = append(keys, k)
 	}
 	return
 }
 
-func getAverage(list []float64) (avg float64) {
-	sum := 0.0
-	for _, v := range list {
-		sum += v
-	}
-	return sum / float64(len(list))
-}
-
-func getMedian(list []float64) (median float64) {
-	// Sort the array of keys
-	sort.Float64s(list)
-
-	// Check if array contains even set of keys
-	keysLength, mid := len(list), len(list)/2
-	if keysLength%2 == 0 {
-		// median is the mean of the middle two numbers in array
-		median = (list[mid-1] + list[mid]) / 2.0
-		return
-	}
-	// Otherwise median is the mid point of the array
-	median = list[mid]
-	return
-}
-
-func getCounts(m map[float64]int) (lowFreq int, highFreq int, lowVals []float64, highVals []float64) {
+func (m *valueCountMap) getCounts() (lowFreq int, highFreq int, lowVals []float64, highVals []float64) {
 	// Create a map of counts as keys and list of floats as values
-	countsMap := make(map[int][]float64)
-	for k, v := range m {
+	countsMap := make(countValueMap)
+	for k, v := range *m {
 		countsMap[v] = append(countsMap[v], k)
 	}
 
 	// Get all count keys
-	keys := getKeysFromCountMap(countsMap)
-	sort.Ints(keys)
+	keys := countsMap.getKeys()
+	var sortedKeys []int
+	for _, v := range keys {
+		sortedKeys = append(sortedKeys, v.(int))
+	}
+	sort.Ints(sortedKeys)
 
-	return keys[0], keys[len(keys)-1], countsMap[keys[0]], countsMap[keys[len(keys)-1]]
+	return sortedKeys[0], sortedKeys[len(sortedKeys)-1], countsMap[sortedKeys[0]], countsMap[sortedKeys[len(sortedKeys)-1]]
 }
 
-func getMetrics(m map[float64]int) (avg float64, median float64, low float64, high float64, lowVals []float64, highVals []float64, lowFreq int, highFreq int) {
-	keys := getKeysFromValueMap(m)
+func (m *valueCountMap) getMetrics() (avg float64, median float64, low float64, high float64, lowVals []float64, highVals []float64, lowFreq int, highFreq int) {
+	keys := m.getKeys()
 
 	// Get high and low counts and corresponding values with those counts
-	lowFreq, highFreq, lowVals, highVals = getCounts(m)
+	lowFreq, highFreq, lowVals, highVals = m.getCounts()
 
 	sort.Float64s(lowVals)
 	sort.Float64s(highVals)
 
-	avg = getAverage(keys)
-	median = getMedian(keys)
-	return avg, median, keys[0], keys[len(keys)-1], lowVals, highVals, lowFreq, highFreq
+	return keys.getAverage(), keys.getMedian(), keys[0].(float64), keys[len(keys)-1].(float64), lowVals, highVals, lowFreq, highFreq
 }
 
 func main() {
 	start := time.Now()
 
 	// Data construct to store all wind speed readings
-	windSpeedsMap := make(map[float64]int)
+	windSpeedsMap := make(valueCountMap)
 	// Data construct to store all air temperature readings
-	airTempMap := make(map[float64]int)
+	airTempMap := make(valueCountMap)
 	// Data construct to store all barometric pressure readings
-	barPressureMap := make(map[float64]int)
+	barPressureMap := make(valueCountMap)
 
 	// Open file
 	f, err := os.Open(os.Args[1])
@@ -135,10 +148,10 @@ func main() {
 		wordScanner.Split(bufio.ScanWords)
 
 		// Parse the words in the line
-		for count := 1; wordScanner.Scan(); count++ {
+		for column := 1; wordScanner.Scan(); column++ {
 			// Get the current word from the sentence
 			f, _ := strconv.ParseFloat(wordScanner.Text(), 64)
-			switch count {
+			switch column {
 			case 3: // Air temperature is in the 3rd column
 				airTempMap[f] = airTempMap[f] + 1
 			case 4: // Barometric pressure is in the 4th column
@@ -158,15 +171,15 @@ func main() {
 	fmt.Printf("Total readings: %d\n", lineCount)
 
 	// Get temperature average and median
-	avg, median, low, high, _, highVals, _, highFreq := getMetrics(airTempMap)
+	avg, median, low, high, _, highVals, _, highFreq := airTempMap.getMetrics()
 	fmt.Printf("Air temperature: Average %.2f, Median %.2f, Low %.2f, High %.2f, Most frequent %v, Frequency %d\n", avg, median, low, high, highVals, highFreq)
 
 	// Get barometric pressure average and median
-	avg, median, low, high, _, highVals, _, highFreq = getMetrics(barPressureMap)
+	avg, median, low, high, _, highVals, _, highFreq = barPressureMap.getMetrics()
 	fmt.Printf("Barometric pressure: Average %.2f Median %.2f, Low %.2f, High %.2f, Most frequent %v, Frequency %d\n", avg, median, low, high, highVals, highFreq)
 
 	// Get wind speed average and median
-	avg, median, low, high, _, highVals, _, highFreq = getMetrics(windSpeedsMap)
+	avg, median, low, high, _, highVals, _, highFreq = windSpeedsMap.getMetrics()
 	fmt.Printf("Wind speed: Average %.2f Median %.2f, Low %.2f, High %.2f, Most frequent %v, Frequency %d\n\n", avg, median, low, high, highVals, highFreq)
 
 	elapsed := time.Since(start)
