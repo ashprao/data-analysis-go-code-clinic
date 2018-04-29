@@ -104,6 +104,11 @@ func (m *valueCountMap) getCounts() (lowFreq int, highFreq int, lowVals []float6
 
 func (m *valueCountMap) getMetrics() (avg float64, median float64, low float64, high float64, lowVals []float64, highVals []float64, lowFreq int, highFreq int) {
 	keys := m.getKeys()
+	var sortedKeys []float64
+	for _, v := range keys {
+		sortedKeys = append(sortedKeys, v.(float64))
+	}
+	sort.Float64s(sortedKeys)
 
 	// Get high and low counts and corresponding values with those counts
 	lowFreq, highFreq, lowVals, highVals = m.getCounts()
@@ -111,7 +116,7 @@ func (m *valueCountMap) getMetrics() (avg float64, median float64, low float64, 
 	sort.Float64s(lowVals)
 	sort.Float64s(highVals)
 
-	return keys.getAverage(), keys.getMedian(), keys[0].(float64), keys[len(keys)-1].(float64), lowVals, highVals, lowFreq, highFreq
+	return keys.getAverage(), keys.getMedian(), sortedKeys[0], sortedKeys[len(keys)-1], lowVals, highVals, lowFreq, highFreq
 }
 
 func main() {
