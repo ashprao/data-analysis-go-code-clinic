@@ -33,22 +33,22 @@ func check(e error) {
 
 type valueCountMap map[float64]int
 type countValueMap map[int][]float64
-type keyList []interface{}
 
-func (list *keyList) getAverage() (avg float64) {
+func (m *valueCountMap) getAverage() (avg float64) {
 	sum := 0.0
-	for _, v := range *list {
-		x := v.(float64)
-		sum += x
+	list := m.getKeys()
+	for _, v := range list {
+		sum += v
 	}
-	return sum / float64(len(*list))
+	return sum / float64(len(list))
 }
 
-func (list *keyList) getMedian() (median float64) {
+func (m *valueCountMap) getMedian() (median float64) {
 	// Sort the array of keys
 	var sortedKeys []float64
-	for _, v := range *list {
-		sortedKeys = append(sortedKeys, v.(float64))
+	list := m.getKeys()
+	for _, v := range list {
+		sortedKeys = append(sortedKeys, v)
 	}
 	sort.Float64s(sortedKeys)
 
@@ -64,7 +64,7 @@ func (list *keyList) getMedian() (median float64) {
 	return
 }
 
-func (m *valueCountMap) getKeys() (keys keyList) {
+func (m *valueCountMap) getKeys() (keys []float64) {
 	// Extract all keys into an array. The count represents the number of times the
 	// respective keys should be in the list
 	for k, c := range *m {
@@ -76,7 +76,7 @@ func (m *valueCountMap) getKeys() (keys keyList) {
 	return
 }
 
-func (m *countValueMap) getKeys() (keys keyList) {
+func (m *countValueMap) getKeys() (keys []int) {
 	// Extract all keys into an array
 	for k := range *m {
 		keys = append(keys, k)
@@ -95,7 +95,7 @@ func (m *valueCountMap) getCounts() (lowFreq int, highFreq int, lowVals []float6
 	keys := countsMap.getKeys()
 	var sortedKeys []int
 	for _, v := range keys {
-		sortedKeys = append(sortedKeys, v.(int))
+		sortedKeys = append(sortedKeys, v)
 	}
 	sort.Ints(sortedKeys)
 
@@ -106,7 +106,7 @@ func (m *valueCountMap) getMetrics() (avg float64, median float64, low float64, 
 	keys := m.getKeys()
 	var sortedKeys []float64
 	for _, v := range keys {
-		sortedKeys = append(sortedKeys, v.(float64))
+		sortedKeys = append(sortedKeys, v)
 	}
 	sort.Float64s(sortedKeys)
 
@@ -116,7 +116,7 @@ func (m *valueCountMap) getMetrics() (avg float64, median float64, low float64, 
 	sort.Float64s(lowVals)
 	sort.Float64s(highVals)
 
-	return keys.getAverage(), keys.getMedian(), sortedKeys[0], sortedKeys[len(keys)-1], lowVals, highVals, lowFreq, highFreq
+	return m.getAverage(), m.getMedian(), sortedKeys[0], sortedKeys[len(keys)-1], lowVals, highVals, lowFreq, highFreq
 }
 
 func main() {
